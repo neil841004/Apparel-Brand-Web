@@ -72,6 +72,22 @@
 
   .subtitle { color: var(--text2); font-size: 13px; margin-top: 2px; }
 
+  .edit-link {
+    margin-left: auto;
+    padding: 7px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text2);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: border-color .2s, color .2s;
+  }
+  .edit-link:hover { border-color: var(--accent); color: var(--accent2); }
+
   /* ── Filter bar ── */
   .filter-bar {
     display: flex;
@@ -479,6 +495,7 @@
         <h1>服飾<span>網購整理</span></h1>
         <div class="subtitle">按星等與價位整理的服飾購物清單</div>
       </div>
+      <a href="editor.html" class="edit-link">✏️ 編輯清單</a>
     </div>
     <button class="filter-toggle" id="filterToggle" aria-expanded="false">
       <span class="filter-toggle-label">🔧 篩選條件</span>
@@ -576,7 +593,7 @@ document.addEventListener('click', e => {
   }
 });
 
-const STORES = [
+const DEFAULT_STORES = [
   // ── ☆☆☆☆☆ 5 Stars ──
   { name: "SENSE OF PLACE", url: "https://senseofplace.tokyo/zh-TW/SenseOfPlace/ProductList?item1=01", stars: 5, price: 2, cat: "日系", domain: "senseofplace.tokyo" },
   { name: "RAGEBLUE", url: "https://www.dot-st.tw/v2/official/SalePageCategory/475506?sortMode=Newest", stars: 5, price: 3, cat: "日系", domain: "dot-st.tw" },
@@ -696,6 +713,15 @@ const STORES = [
   { name: "hellolulu ELIO ECO (Pinkoi)", url: "https://www.pinkoi.com/product/HvbpDtcP", stars: 0, price: 2, cat: "包包", domain: "pinkoi.com" },
   { name: "Go:wild 輕旅捲蓋後背包 (Pinkoi)", url: "https://www.pinkoi.com/product/LC2QffPv", stars: 0, price: 2, cat: "包包", domain: "pinkoi.com" },
 ];
+
+// Load from localStorage (editor saves here), fall back to defaults
+let STORES = (() => {
+  try {
+    const s = JSON.parse(localStorage.getItem('apparel_stores'));
+    if (Array.isArray(s) && s.length) return s;
+  } catch {}
+  return DEFAULT_STORES;
+})();
 
 const PRICE_LABELS = { 1: "$ 平價", 2: "$$ 中等", 3: "$$$ 高端" };
 const PRICE_CLASS = { 1: "price-1", 2: "price-2", 3: "price-3" };
