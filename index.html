@@ -532,9 +532,6 @@
             <button class="filter-btn" data-cat="日系">日系</button>
             <button class="filter-btn" data-cat="韓系">韓系</button>
             <button class="filter-btn" data-cat="歐美">歐美</button>
-            <button class="filter-btn" data-cat="日本網站">日本網站</button>
-            <button class="filter-btn" data-cat="鞋">鞋</button>
-            <button class="filter-btn" data-cat="包包">包包</button>
           </div>
         </div>
         <div class="search-wrap">
@@ -594,7 +591,6 @@ document.addEventListener('click', e => {
 });
 
 const DEFAULT_STORES = [
-  // ── ☆☆☆☆☆ 5 Stars ──
   { name: "SENSE OF PLACE", url: "https://senseofplace.tokyo/zh-TW/SenseOfPlace/ProductList?item1=01", stars: 5, price: 2, cat: "日系", domain: "senseofplace.tokyo" },
   { name: "RAGEBLUE", url: "https://www.dot-st.tw/v2/official/SalePageCategory/475506?sortMode=Newest", stars: 5, price: 3, cat: "日系", domain: "dot-st.tw" },
   { name: "LAKOLE", url: "https://www.dot-st.tw/v2/official/SalePageCategory/534017?sortMode=Newest", stars: 5, price: 3, cat: "日系", domain: "dot-st.tw" },
@@ -695,23 +691,6 @@ const DEFAULT_STORES = [
   { name: "UNLIMITED", url: "https://www.unlimited-tw.com/", stars: 1, price: 1, cat: "台灣品牌", domain: "unlimited-tw.com" },
   { name: "Bershka（實體店）", url: "https://www.bershka.com/tw/h-man.html", stars: 1, price: 1, cat: "歐美", domain: "bershka.com" },
 
-  // ── 日本網站 ──
-  { name: "ZOZOTOWN", url: "https://zozo.jp/", stars: 0, price: 2, cat: "日本網站", domain: "zozo.jp" },
-  { name: "Karakubuy", url: "https://karakubuy.com/", stars: 0, price: 2, cat: "日本網站", domain: "karakubuy.com" },
-  { name: "Digital-Mountain", url: "https://www.digital-mountain.net/", stars: 0, price: 2, cat: "日本網站", domain: "digital-mountain.net" },
-  { name: "AZUL BY MOUSSY", url: "https://azul-m.com/", stars: 0, price: 2, cat: "日本網站", domain: "azul-m.com" },
-  { name: "graniph", url: "https://www.graniph.com/", stars: 0, price: 2, cat: "日本網站", domain: "graniph.com" },
-  { name: "CAMBIO", url: "https://www.cambio.co.jp/", stars: 0, price: 3, cat: "日本網站", domain: "cambio.co.jp" },
-
-  // ── 鞋 ──
-  { name: "groundzero2002 Flexing", url: "https://groundzero2002.com/collections/flexing-shoes", stars: 0, price: 2, cat: "鞋", domain: "groundzero2002.com" },
-  { name: "madenwear 馬登工裝鞋", url: "https://www.madenwear.com/", stars: 0, price: 2, cat: "鞋", domain: "madenwear.com" },
-
-  // ── 包包 ──
-  { name: "WHOSE BAG (PChome)", url: "https://24h.pchome.com.tw/prod/DIBFAV-A900EQIK6", stars: 0, price: 2, cat: "包包", domain: "pchome.com.tw" },
-  { name: "Bitplay 28L 後背包", url: "https://24h.pchome.com.tw/prod/DIBMMA-A900IFYAG", stars: 0, price: 2, cat: "包包", domain: "pchome.com.tw" },
-  { name: "hellolulu ELIO ECO (Pinkoi)", url: "https://www.pinkoi.com/product/HvbpDtcP", stars: 0, price: 2, cat: "包包", domain: "pinkoi.com" },
-  { name: "Go:wild 輕旅捲蓋後背包 (Pinkoi)", url: "https://www.pinkoi.com/product/LC2QffPv", stars: 0, price: 2, cat: "包包", domain: "pinkoi.com" },
 ];
 
 // Load from localStorage (editor saves here), fall back to defaults
