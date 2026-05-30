@@ -615,7 +615,7 @@ const SECTION_META = {
   0: { title: "🗂 其他類別", color: "#a78bfa" },
 };
 
-let activeStar = "all";
+let activeStars = new Set(["all"]);
 let activePrice = "all";
 let activeCat = "all";
 let searchQ = "";
@@ -668,7 +668,7 @@ function renderSections() {
   let total = 0;
 
   STORES.forEach(s => {
-    const starMatch = activeStar === "all" || String(s.stars) === activeStar;
+    const starMatch = activeStars.has("all") || activeStars.has(String(s.stars));
     const priceMatch = activePrice === "all" || String(s.price) === activePrice;
     const catMatch = activeCat === "all" || s.cat === activeCat;
     const nameMatch = !searchQ || s.name.toLowerCase().includes(searchQ);
@@ -704,7 +704,7 @@ function renderSections() {
         <span class="count-badge">${items.length} 家</span>
         <div class="section-divider"></div>
       </div>
-      <div class="grid">${items.map(cardHtml).join('')}</div>`;
+      <div class="grid">${[...items].sort((a, b) => a.price - b.price || a.name.localeCompare(b.name, 'zh-TW')).map(cardHtml).join('')}</div>`;
     sectionsEl.appendChild(block);
   });
 }
@@ -721,7 +721,7 @@ filterToggle.addEventListener('click', () => {
 });
 
 function updateFilterBadge() {
-  const active = (activeStar !== 'all' ? 1 : 0) +
+  const active = (!activeStars.has('all') ? 1 : 0) +
                  (activePrice !== 'all' ? 1 : 0) +
                  (activeCat !== 'all' ? 1 : 0) +
                  (searchQ ? 1 : 0);
@@ -733,9 +733,25 @@ function updateFilterBadge() {
 // ── Filter logic ──
 document.querySelectorAll('[data-star]').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('[data-star]').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    activeStar = btn.dataset.star;
+    const val = btn.dataset.star;
+    if (val === 'all') {
+      // 點「全部」→ 清除所有選擇，回到全部
+      activeStars = new Set(['all']);
+    } else {
+      // 點星等按鈕 → 複選模式
+      activeStars.delete('all');
+      if (activeStars.has(val)) {
+        activeStars.delete(val);
+      } else {
+        activeStars.add(val);
+      }
+      // 若全部取消選擇，自動回到「全部」
+      if (activeStars.size === 0) activeStars = new Set(['all']);
+    }
+    // 更新按鈕樣式
+    document.querySelectorAll('[data-star]').forEach(b => {
+      b.classList.toggle('active', activeStars.has(b.dataset.star));
+    });
     renderSections();
     updateFilterBadge();
   });
