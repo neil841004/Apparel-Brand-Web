@@ -320,12 +320,90 @@
   ::-webkit-scrollbar-track { background: var(--bg); }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
+  /* ── Collapsible filter (mobile) ── */
+  .filter-toggle {
+    display: none;
+  }
+
   @media (max-width: 640px) {
-    header { padding: 20px 16px 16px; }
+    header { padding: 16px 16px 14px; }
     main { padding: 12px 16px 40px; }
     .grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
     h1 { font-size: 20px; }
-    .search-wrap { width: 100%; }
+
+    /* Toggle button */
+    .filter-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: left;
+      transition: border-color 0.2s;
+    }
+    .filter-toggle:hover { border-color: var(--accent); }
+    .filter-toggle.has-filter { border-color: var(--accent); color: var(--accent2); }
+
+    .filter-toggle-label { flex: 1; }
+
+    .filter-active-badge {
+      background: var(--accent);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 999px;
+      display: none;
+    }
+    .filter-active-badge.show { display: inline-block; }
+
+    .filter-toggle-arrow {
+      font-size: 11px;
+      color: var(--text2);
+      transition: transform 0.25s;
+    }
+    .filter-toggle.open .filter-toggle-arrow { transform: rotate(180deg); }
+
+    /* Collapsible container */
+    .filter-collapse {
+      overflow: hidden;
+      max-height: 0;
+      opacity: 0;
+      transition: max-height 0.3s ease, opacity 0.25s ease, margin-top 0.25s ease;
+      margin-top: 0;
+    }
+    .filter-collapse.open {
+      max-height: 600px;
+      opacity: 1;
+      margin-top: 10px;
+    }
+
+    /* Inside the collapse: stack groups vertically */
+    .filter-bar {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12px;
+    }
+    .filter-group {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+      padding: 10px 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    .filter-label { margin-bottom: 2px; }
+    .filter-group > div { display: flex; flex-wrap: wrap; gap: 6px; }
+
+    .search-wrap { width: 100%; margin-left: 0; }
     #search { width: 100%; }
     #search:focus { width: 100%; }
   }
@@ -342,37 +420,50 @@
         <div class="subtitle">按星等與價位整理的服飾購物清單</div>
       </div>
     </div>
-    <div class="filter-bar">
-      <div class="filter-group">
-        <span class="filter-label">⭐ 星等</span>
-        <button class="filter-btn active" data-star="all">全部</button>
-        <button class="filter-btn" data-star="5">★★★★★</button>
-        <button class="filter-btn" data-star="4">★★★★</button>
-        <button class="filter-btn" data-star="3">★★★</button>
-        <button class="filter-btn" data-star="2">★★</button>
-        <button class="filter-btn" data-star="1">★</button>
-      </div>
-      <div class="filter-group">
-        <span class="filter-label">💰 價位</span>
-        <button class="filter-btn active" data-price="all">全部</button>
-        <button class="filter-btn" data-price="1">$ 平價</button>
-        <button class="filter-btn" data-price="2">$$ 中等</button>
-        <button class="filter-btn" data-price="3">$$$ 高端</button>
-      </div>
-      <div class="filter-group">
-        <span class="filter-label">🗂 類型</span>
-        <button class="filter-btn active" data-cat="all">全部</button>
-        <button class="filter-btn" data-cat="台灣品牌">台灣品牌</button>
-        <button class="filter-btn" data-cat="日系">日系</button>
-        <button class="filter-btn" data-cat="韓系">韓系</button>
-        <button class="filter-btn" data-cat="歐美">歐美</button>
-        <button class="filter-btn" data-cat="日本網站">日本網站</button>
-        <button class="filter-btn" data-cat="鞋">鞋</button>
-        <button class="filter-btn" data-cat="包包">包包</button>
-      </div>
-      <div class="search-wrap">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <input type="text" id="search" placeholder="搜尋店家...">
+    <button class="filter-toggle" id="filterToggle" aria-expanded="false">
+      <span class="filter-toggle-label">🔧 篩選條件</span>
+      <span class="filter-active-badge" id="filterBadge"></span>
+      <span class="filter-toggle-arrow">▼</span>
+    </button>
+    <div class="filter-collapse" id="filterCollapse">
+      <div class="filter-bar">
+        <div class="filter-group">
+          <span class="filter-label">⭐ 星等</span>
+          <div>
+            <button class="filter-btn active" data-star="all">全部</button>
+            <button class="filter-btn" data-star="5">★★★★★</button>
+            <button class="filter-btn" data-star="4">★★★★</button>
+            <button class="filter-btn" data-star="3">★★★</button>
+            <button class="filter-btn" data-star="2">★★</button>
+            <button class="filter-btn" data-star="1">★</button>
+          </div>
+        </div>
+        <div class="filter-group">
+          <span class="filter-label">💰 價位</span>
+          <div>
+            <button class="filter-btn active" data-price="all">全部</button>
+            <button class="filter-btn" data-price="1">$ 平價</button>
+            <button class="filter-btn" data-price="2">$$ 中等</button>
+            <button class="filter-btn" data-price="3">$$$ 高端</button>
+          </div>
+        </div>
+        <div class="filter-group">
+          <span class="filter-label">🗂 類型</span>
+          <div>
+            <button class="filter-btn active" data-cat="all">全部</button>
+            <button class="filter-btn" data-cat="台灣品牌">台灣品牌</button>
+            <button class="filter-btn" data-cat="日系">日系</button>
+            <button class="filter-btn" data-cat="韓系">韓系</button>
+            <button class="filter-btn" data-cat="歐美">歐美</button>
+            <button class="filter-btn" data-cat="日本網站">日本網站</button>
+            <button class="filter-btn" data-cat="鞋">鞋</button>
+            <button class="filter-btn" data-cat="包包">包包</button>
+          </div>
+        </div>
+        <div class="search-wrap">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" id="search" placeholder="搜尋店家...">
+        </div>
       </div>
     </div>
   </div>
@@ -618,13 +709,35 @@ function renderSections() {
   });
 }
 
-// Filter logic
+// ── Mobile filter toggle ──
+const filterToggle = document.getElementById('filterToggle');
+const filterCollapse = document.getElementById('filterCollapse');
+const filterBadge = document.getElementById('filterBadge');
+
+filterToggle.addEventListener('click', () => {
+  const open = filterCollapse.classList.toggle('open');
+  filterToggle.classList.toggle('open', open);
+  filterToggle.setAttribute('aria-expanded', open);
+});
+
+function updateFilterBadge() {
+  const active = (activeStar !== 'all' ? 1 : 0) +
+                 (activePrice !== 'all' ? 1 : 0) +
+                 (activeCat !== 'all' ? 1 : 0) +
+                 (searchQ ? 1 : 0);
+  filterBadge.textContent = active > 0 ? active : '';
+  filterBadge.classList.toggle('show', active > 0);
+  filterToggle.classList.toggle('has-filter', active > 0);
+}
+
+// ── Filter logic ──
 document.querySelectorAll('[data-star]').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('[data-star]').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     activeStar = btn.dataset.star;
     renderSections();
+    updateFilterBadge();
   });
 });
 
@@ -634,6 +747,7 @@ document.querySelectorAll('[data-price]').forEach(btn => {
     btn.classList.add('active');
     activePrice = btn.dataset.price;
     renderSections();
+    updateFilterBadge();
   });
 });
 
@@ -643,12 +757,14 @@ document.querySelectorAll('[data-cat]').forEach(btn => {
     btn.classList.add('active');
     activeCat = btn.dataset.cat;
     renderSections();
+    updateFilterBadge();
   });
 });
 
 document.getElementById('search').addEventListener('input', e => {
   searchQ = e.target.value.toLowerCase().trim();
   renderSections();
+  updateFilterBadge();
 });
 
 renderSections();
