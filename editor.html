@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>服飾清單編輯器</title>
+<style>
+  :root {
+    --bg: #0f0f13;
+    --surface: #1a1a24;
+    --surface2: #22222f;
+    --border: #2e2e3f;
+    --accent: #7c6af7;
+    --accent2: #a78bfa;
+    --text: #e8e8f0;
+    --text2: #9090a8;
+    --tag-bg: #2e2e3f;
+    --star-color: #f5c542;
+    --price1: #4ade80;
+    --price2: #facc15;
+    --price3: #f87171;
+    --danger: #ef4444;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* ── Header ── */
+  header {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 18px 24px;
+    position: sticky; top: 0; z-index: 50;
+  }
+  .header-inner { max-width: 960px; margin: 0 auto; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .back-btn {
+    padding: 7px 14px; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text2); text-decoration: none; font-size: 13px;
+    white-space: nowrap; transition: border-color .2s, color .2s;
+  }
+  .back-btn:hover { border-color: var(--accent); color: var(--text); }
+  .header-title { font-size: 18px; font-weight: 700; flex: 1; white-space: nowrap; }
+  .header-title span { color: var(--accent2); }
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+  /* ── Buttons ── */
+  .btn {
+    padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 600;
+    cursor: pointer; border: 1px solid var(--border); transition: all .2s; white-space: nowrap;
+  }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent2); border-color: var(--accent2); }
+  .btn-ghost { background: var(--surface2); color: var(--text2); }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--text); }
+  .btn-danger { background: rgba(239,68,68,.1); border-color: rgba(239,68,68,.3); color: var(--danger); }
+  .btn-danger:hover { background: rgba(239,68,68,.2); }
+
+  /* ── Search / sort bar ── */
+  .controls {
+    max-width: 960px; margin: 20px auto 0; padding: 0 24px;
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  }
+  .search-wrap { position: relative; flex: 1; min-width: 160px; }
+  .search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text2); pointer-events: none; }
+  .controls input[type=text] {
+    width: 100%; padding: 8px 12px 8px 32px; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); border-radius: 8px; font-size: 13px; outline: none;
+  }
+  .controls input[type=text]:focus { border-color: var(--accent); }
+  .controls input[type=text]::placeholder { color: var(--text2); }
+  select.sort-sel {
+    padding: 8px 12px; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); border-radius: 8px; font-size: 13px; cursor: pointer; outline: none;
+  }
+  .store-count { font-size: 13px; color: var(--text2); white-space: nowrap; }
+  .store-count span { color: var(--accent2); font-weight: 600; }
+
+  /* ── Store list ── */
+  main { max-width: 960px; margin: 16px auto 60px; padding: 0 24px; }
+
+  .store-item {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    margin-bottom: 8px; display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+    transition: border-color .2s;
+  }
+  .store-item:hover { border-color: var(--border); }
+
+  .store-favicon {
+    width: 40px; height: 40px; min-width: 40px; border-radius: 8px;
+    background: var(--surface2); display: flex; align-items: center; justify-content: center; overflow: hidden;
+  }
+  .store-favicon img { width: 28px; height: 28px; object-fit: contain; }
+
+  .store-info { flex: 1; min-width: 0; }
+  .store-name { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .store-url { font-size: 11px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+  .store-meta { display: flex; gap: 6px; align-items: center; margin-top: 5px; flex-wrap: wrap; }
+
+  .stars-sm { font-size: 11px; color: var(--star-color); letter-spacing: 1px; }
+  .stars-sm .dim { color: #3a3a4a; }
+
+  .price-badge {
+    padding: 2px 7px; border-radius: 999px; font-size: 10px; font-weight: 700;
+  }
+  .price-1 { background: rgba(74,222,128,.15); color: var(--price1); border: 1px solid rgba(74,222,128,.3); }
+  .price-2 { background: rgba(250,204,21,.15); color: var(--price2); border: 1px solid rgba(250,204,21,.3); }
+  .price-3 { background: rgba(248,113,113,.15); color: var(--price3); border: 1px solid rgba(248,113,113,.3); }
+
+  .cat-tag {
+    background: var(--tag-bg); color: var(--text2); font-size: 10px;
+    padding: 2px 7px; border-radius: 4px;
+  }
+  .note-tag { background: rgba(124,106,247,.15); color: var(--accent2); font-size: 10px; padding: 2px 7px; border-radius: 4px; }
+
+  .store-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .icon-btn {
+    width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface2); cursor: pointer; display: flex; align-items: center;
+    justify-content: center; font-size: 14px; transition: all .2s; color: var(--text2);
+  }
+  .icon-btn:hover { border-color: var(--accent); color: var(--text); }
+  .icon-btn.del:hover { border-color: var(--danger); color: var(--danger); background: rgba(239,68,68,.1); }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 200;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+    backdrop-filter: blur(4px);
+  }
+  .modal-overlay.hidden { display: none; }
+
+  .modal {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    width: 100%; max-width: 520px; max-height: 90vh; display: flex; flex-direction: column;
+    box-shadow: 0 24px 64px rgba(0,0,0,.6);
+  }
+  .modal-header {
+    padding: 18px 20px 14px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+  }
+  .modal-header h2 { font-size: 16px; font-weight: 700; }
+  .modal-close { background: none; border: none; color: var(--text2); font-size: 18px; cursor: pointer; padding: 4px 8px; border-radius: 6px; }
+  .modal-close:hover { background: var(--surface2); color: var(--text); }
+
+  .modal-body { padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+
+  .field label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 6px; }
+  .field input[type=text], .field input[type=url], .field select, .field textarea {
+    width: 100%; padding: 9px 12px; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); border-radius: 8px; font-size: 14px; outline: none; transition: border-color .2s;
+    font-family: inherit;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }
+  .field input::placeholder, .field textarea::placeholder { color: var(--text2); }
+  .field.error input, .field.error textarea { border-color: var(--danger); }
+  .field .err-msg { color: var(--danger); font-size: 11px; margin-top: 4px; display: none; }
+  .field.error .err-msg { display: block; }
+
+  .url-row { display: flex; gap: 8px; }
+  .url-row input { flex: 1; }
+  .test-link {
+    padding: 9px 12px; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text2); text-decoration: none; font-size: 13px;
+    white-space: nowrap; transition: border-color .2s, color .2s;
+  }
+  .test-link:hover { border-color: var(--accent); color: var(--accent2); }
+
+  /* Star picker */
+  .star-picker { display: flex; gap: 6px; flex-wrap: wrap; }
+  .star-opt {
+    padding: 6px 12px; border: 1px solid var(--border); background: var(--surface2);
+    border-radius: 8px; cursor: pointer; font-size: 13px; transition: all .15s; color: var(--text2);
+    user-select: none;
+  }
+  .star-opt:hover { border-color: var(--accent); }
+  .star-opt.active { background: rgba(245,197,66,.15); border-color: var(--star-color); color: var(--star-color); font-weight: 700; }
+  .star-opt[data-v="0"] { font-size: 12px; }
+
+  /* Price picker */
+  .price-picker { display: flex; gap: 8px; }
+  .price-opt {
+    flex: 1; padding: 8px; border: 1px solid var(--border); background: var(--surface2);
+    border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;
+    text-align: center; transition: all .15s; color: var(--text2); user-select: none;
+  }
+  .price-opt:hover { border-color: var(--accent); }
+  .price-opt[data-v="1"].active { background: rgba(74,222,128,.15); border-color: var(--price1); color: var(--price1); }
+  .price-opt[data-v="2"].active { background: rgba(250,204,21,.15); border-color: var(--price2); color: var(--price2); }
+  .price-opt[data-v="3"].active { background: rgba(248,113,113,.15); border-color: var(--price3); color: var(--price3); }
+
+  .modal-footer {
+    padding: 14px 20px; border-top: 1px solid var(--border);
+    display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0;
+  }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    padding: 10px 20px; border-radius: 999px; font-size: 13px; font-weight: 600;
+    box-shadow: 0 8px 24px rgba(0,0,0,.4); transition: transform .3s ease, opacity .3s ease;
+    opacity: 0; z-index: 300; pointer-events: none; white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+  .toast.success { border-color: var(--price1); color: var(--price1); }
+  .toast.warn { border-color: var(--price3); color: var(--price3); }
+
+  /* ── Confirm dialog ── */
+  .confirm-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 300;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+    backdrop-filter: blur(4px);
+  }
+  .confirm-overlay.hidden { display: none; }
+  .confirm-box {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 24px; max-width: 360px; width: 100%; box-shadow: 0 24px 64px rgba(0,0,0,.6);
+  }
+  .confirm-box h3 { font-size: 16px; margin-bottom: 8px; }
+  .confirm-box p { font-size: 13px; color: var(--text2); margin-bottom: 20px; line-height: 1.5; }
+  .confirm-box .actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+  /* ── Empty state ── */
+  .empty-state { text-align: center; padding: 60px 24px; color: var(--text2); }
+  .empty-state .icon { font-size: 40px; margin-bottom: 10px; }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  @media (max-width: 600px) {
+    header { padding: 14px 16px; }
+    .header-title { font-size: 15px; }
+    main, .controls { padding-left: 16px; padding-right: 16px; }
+    .toolbar { gap: 6px; }
+    .btn { padding: 6px 10px; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <a href="index.html" class="back-btn">← 主頁</a>
+    <div class="header-title">✏️ 服飾清單<span>編輯器</span></div>
+    <div class="toolbar">
+      <button class="btn btn-primary" onclick="openModal(-1)">＋ 新增</button>
+      <button class="btn btn-ghost" onclick="exportJSON()">匯出</button>
+      <button class="btn btn-ghost" onclick="triggerImport()">匯入</button>
+      <button class="btn btn-danger" onclick="confirmReset()">重設</button>
+      <input type="file" id="import-file" accept=".json" style="display:none" onchange="importJSON(event)">
+    </div>
+  </div>
+</header>
+
+<div class="controls">
+  <div class="search-wrap">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="text" id="search" placeholder="搜尋店家名稱或網址...">
+  </div>
+  <select class="sort-sel" id="sort">
+    <option value="stars">依星等排序</option>
+    <option value="name">依名稱排序</option>
+    <option value="price">依價位排序</option>
+  </select>
+  <div class="store-count">共 <span id="count">0</span> 家</div>
+</div>
+
+<main id="store-list"></main>
+
+<!-- Edit / Add Modal -->
+<div class="modal-overlay hidden" id="modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-title">新增店家</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field" id="field-name">
+        <label>店家名稱 *</label>
+        <input id="f-name" type="text" placeholder="例：UNIQLO">
+        <div class="err-msg">請輸入店家名稱</div>
+      </div>
+      <div class="field" id="field-url">
+        <label>網址 *</label>
+        <div class="url-row">
+          <input id="f-url" type="url" placeholder="https://..." oninput="onUrlInput()">
+          <a id="f-url-link" href="#" target="_blank" class="test-link">🔗</a>
+        </div>
+        <div class="err-msg">請輸入有效的網址（https://...）</div>
+      </div>
+      <div class="field">
+        <label>縮圖網域（自動擷取，可修改）</label>
+        <input id="f-domain" type="text" placeholder="例：uniqlo.com">
+      </div>
+      <div class="field">
+        <label>星等</label>
+        <div class="star-picker" id="star-picker">
+          <div class="star-opt active" data-v="0">無評分</div>
+          <div class="star-opt" data-v="1">★</div>
+          <div class="star-opt" data-v="2">★★</div>
+          <div class="star-opt" data-v="3">★★★</div>
+          <div class="star-opt" data-v="4">★★★★</div>
+          <div class="star-opt" data-v="5">★★★★★</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>價位</label>
+        <div class="price-picker" id="price-picker">
+          <div class="price-opt active" data-v="1">$ 平價</div>
+          <div class="price-opt" data-v="2">$$ 中等</div>
+          <div class="price-opt" data-v="3">$$$ 高端</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>類型</label>
+        <select id="f-cat">
+          <option>台灣品牌</option>
+          <option>日系</option>
+          <option>韓系</option>
+          <option>歐美</option>
+          <option>日本網站</option>
+          <option>鞋</option>
+          <option>包包</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>備註（選填）</label>
+        <input id="f-note" type="text" placeholder="例：常秒殺">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveModal()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm dialog -->
+<div class="confirm-overlay hidden" id="confirm">
+  <div class="confirm-box">
+    <h3 id="confirm-title"></h3>
+    <p id="confirm-msg"></p>
+    <div class="actions">
+      <button class="btn btn-ghost" onclick="closeConfirm()">取消</button>
+      <button class="btn btn-danger" id="confirm-ok">確認</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const STORE_KEY = 'apparel_stores';
+
+const DEFAULT_STORES = [
+  // ── ☆☆☆☆☆ 5 Stars ──
+  { name: "SENSE OF PLACE", url: "https://senseofplace.tokyo/zh-TW/SenseOfPlace/ProductList?item1=01", stars: 5, price: 2, cat: "日系", domain: "senseofplace.tokyo" },
+  { name: "RAGEBLUE", url: "https://www.dot-st.tw/v2/official/SalePageCategory/475506?sortMode=Newest", stars: 5, price: 3, cat: "日系", domain: "dot-st.tw" },
+  { name: "LAKOLE", url: "https://www.dot-st.tw/v2/official/SalePageCategory/534017?sortMode=Newest", stars: 5, price: 3, cat: "日系", domain: "dot-st.tw" },
+  { name: "Havehad Global", url: "https://havehad-tw.com/", stars: 5, price: 3, cat: "台灣品牌", domain: "havehad-tw.com" },
+  { name: "Life8", url: "https://www.life8.com.tw/LIFE8", stars: 5, price: 1, cat: "台灣品牌", domain: "life8.com.tw" },
+  { name: "dot st TW ADASTRIA", url: "https://www.dot-st.tw/v2/official/SalePageCategory/445879?sortMode=Newest", stars: 5, price: 3, cat: "日系", domain: "dot-st.tw" },
+  { name: "ame soeur", url: "https://www.amesoeur.co/", stars: 5, price: 2, cat: "台灣品牌", domain: "amesoeur.co" },
+  { name: "LABEL SHOP", url: "https://shopee.tw/chuse.inc", stars: 5, price: 1, cat: "台灣品牌", domain: "shopee.tw" },
+  { name: "CUBOX", url: "https://www.cubox2008.com/", stars: 5, price: 3, cat: "台灣品牌", domain: "cubox2008.com" },
+  { name: "DYCTEAM SELECT", url: "https://www.dycteam-select.com/", stars: 5, price: 3, cat: "台灣品牌", domain: "dycteam-select.com" },
+  { name: "B-SIDE Clothing", url: "https://www.bside-taipei.com/", stars: 5, price: 3, cat: "台灣品牌", domain: "bside-taipei.com", note: "常秒殺" },
+  { name: "Goofing-off", url: "https://shopee.tw/stanley0107", stars: 5, price: 1, cat: "台灣品牌", domain: "shopee.tw" },
+  // ── ☆☆☆☆ 4 Stars ──
+  { name: "CACO", url: "https://www.caco.com.tw/home/tee", stars: 4, price: 1, cat: "台灣品牌", domain: "caco.com.tw" },
+  { name: "ANST", url: "https://www.anstw.com.tw/", stars: 4, price: 2, cat: "台灣品牌", domain: "anstw.com.tw" },
+  { name: "plain-me", url: "https://shopee.tw/plainme?page=0", stars: 4, price: 2, cat: "台灣品牌", domain: "shopee.tw" },
+  { name: "OFFSET", url: "https://www.offsetstudio.com.tw/", stars: 4, price: 1, cat: "台灣品牌", domain: "offsetstudio.com.tw" },
+  { name: "nerd", url: "https://www.nerdjp.co/categories/freaks-store", stars: 4, price: 3, cat: "日系", domain: "nerdjp.co" },
+  { name: "FRANK'S", url: "https://shopee.tw/franks888", stars: 4, price: 2, cat: "台灣品牌", domain: "shopee.tw" },
+  { name: "Mars Co.", url: "https://www.marsco.me/", stars: 4, price: 1, cat: "台灣品牌", domain: "marsco.me" },
+  { name: "WHOSEWEAR", url: "https://shopee.tw/whosewear", stars: 4, price: 1, cat: "台灣品牌", domain: "shopee.tw" },
+  { name: "Undergarden", url: "https://www.undergarden.co/", stars: 4, price: 3, cat: "台灣品牌", domain: "undergarden.co" },
+  { name: "RPTN SHOP", url: "https://rptn.reputationshop.com/", stars: 4, price: 2, cat: "台灣品牌", domain: "reputationshop.com" },
+  { name: "SHTICK", url: "https://www.shtickinc.com/Shop/", stars: 4, price: 1, cat: "台灣品牌", domain: "shtickinc.com" },
+  { name: "URBAN RESEARCH", url: "https://www.urban-research.tw/", stars: 4, price: 3, cat: "日系", domain: "urban-research.tw" },
+  { name: "無印良品 MUJI", url: "https://shop.muji.tw/page/Men", stars: 4, price: 1, cat: "日系", domain: "muji.tw" },
+  { name: "ZARA Taiwan", url: "https://www.zara.com/tw/", stars: 4, price: 2, cat: "歐美", domain: "zara.com" },
+  { name: "UNIQLO", url: "https://www.uniqlo.com/tw/zh_TW/men.html", stars: 4, price: 1, cat: "日系", domain: "uniqlo.com" },
+  { name: "GU", url: "https://www.gu-global.com/tw/zh_TW/", stars: 4, price: 1, cat: "日系", domain: "gu-global.com" },
+  { name: "FUZY", url: "https://www.fuzytw.com/", stars: 4, price: 1, cat: "台灣品牌", domain: "fuzytw.com" },
+  { name: "金JINEASTERNAU", url: "https://jin2023.net/", stars: 4, price: 2, cat: "台灣品牌", domain: "jin2023.net" },
+  { name: "JUMP COLORS", url: "https://www.jumpcolors.com/", stars: 4, price: 1, cat: "台灣品牌", domain: "jumpcolors.com" },
+  { name: "G Select", url: "https://www.gselect.co/", stars: 4, price: 2, cat: "台灣品牌", domain: "gselect.co" },
+  { name: "3POINTER", url: "https://www.3pointertw.com/", stars: 4, price: 3, cat: "台灣品牌", domain: "3pointertw.com" },
+  // ── ☆☆☆ 3 Stars ──
+  { name: "Need How", url: "https://www.needhowtw.com/", stars: 3, price: 2, cat: "台灣品牌", domain: "needhowtw.com" },
+  { name: "NIHOW | N.CORE", url: "https://www.nihow.tw/", stars: 3, price: 3, cat: "韓系", domain: "nihow.tw" },
+  { name: "KAI KAI", url: "https://www.kaikai.com.tw/", stars: 3, price: 3, cat: "台灣品牌", domain: "kaikai.com.tw" },
+  { name: "Noir", url: "https://www.noir.com.tw/", stars: 3, price: 1, cat: "台灣品牌", domain: "noir.com.tw" },
+  { name: "UNITED ARROWS", url: "https://store.united-arrows.tw/", stars: 3, price: 2, cat: "日系", domain: "united-arrows.tw" },
+  { name: "Carhartt WIP", url: "https://www.carhartt-wip.com.tw/", stars: 3, price: 3, cat: "歐美", domain: "carhartt-wip.com.tw" },
+  { name: "CREALIVE DEPT.", url: "https://www.crealivedept.com/", stars: 3, price: 3, cat: "台灣品牌", domain: "crealivedept.com" },
+  { name: "Persevere", url: "https://www.persevere1905.com/", stars: 3, price: 2, cat: "台灣品牌", domain: "persevere1905.com" },
+  { name: "Cahlumn", url: "https://www.ddswshop.co/categories/cahlumn", stars: 3, price: 3, cat: "台灣品牌", domain: "ddswshop.co" },
+  { name: "GLOBAL WORK", url: "https://www.dot-st.tw/v2/official/SalePageCategory/218807?sortMode=Newest", stars: 3, price: 3, cat: "日系", domain: "dot-st.tw" },
+  { name: "NERD SELECT STORE", url: "https://www.nerdjp.co/", stars: 3, price: 3, cat: "日系", domain: "nerdjp.co" },
+  { name: "PIN SKTBS", url: "https://www.3pointertw.com/categories/pin-sktbs", stars: 3, price: 1, cat: "台灣品牌", domain: "3pointertw.com" },
+  { name: "UNO STORE", url: "https://www.uno.com.tw/Shop/", stars: 3, price: 1, cat: "台灣品牌", domain: "uno.com.tw" },
+  { name: "H&M", url: "https://www2.hm.com/zh_asia3/index.html", stars: 3, price: 2, cat: "歐美", domain: "hm.com" },
+  { name: "METAL MOB", url: "https://shopee.tw/metal_mob.co", stars: 3, price: 2, cat: "台灣品牌", domain: "shopee.tw" },
+  { name: "H.Y Select Store", url: "https://www.hystore.com.tw/", stars: 3, price: 1, cat: "台灣品牌", domain: "hystore.com.tw" },
+  { name: "VIP SHOPPING", url: "https://www.vip-shopping.com.tw/collect?p=7", stars: 3, price: 1, cat: "台灣品牌", domain: "vip-shopping.com.tw" },
+  { name: "NoGF", url: "https://www.nogf.com.tw/", stars: 3, price: 1, cat: "台灣品牌", domain: "nogf.com.tw" },
+  { name: "LAKING", url: "https://www.laking.com.tw/", stars: 3, price: 2, cat: "台灣品牌", domain: "laking.com.tw" },
+  { name: "MANIACREW", url: "https://shop.nextmobriot.com/v2/official/SalePageCategory/277665?sortMode=Newest", stars: 3, price: 3, cat: "台灣品牌", domain: "nextmobriot.com" },
+  { name: "Umai Clothing", url: "https://umaiclothing.com/", stars: 3, price: 2, cat: "歐美", domain: "umaiclothing.com" },
+  { name: "50% FIFTY PERCENT", url: "https://www.50-shop.com/Shop/itemList.aspx?m=5&p=13", stars: 3, price: 1, cat: "台灣品牌", domain: "50-shop.com" },
+  { name: "WODEN", url: "https://shopee.tw/wodenchie", stars: 3, price: 1, cat: "台灣品牌", domain: "shopee.tw" },
+  { name: "UNDER PEACE", url: "https://www.underpeaceshop.com/", stars: 3, price: 2, cat: "台灣品牌", domain: "underpeaceshop.com" },
+  { name: "unknowndomaintw", url: "https://www.unknowndomaintw.com/", stars: 3, price: 3, cat: "台灣品牌", domain: "unknowndomaintw.com" },
+  { name: "WTFUNK", url: "https://www.wtfunk.com.tw/", stars: 3, price: 1, cat: "台灣品牌", domain: "wtfunk.com.tw" },
+  { name: "coen | UNITED ARROWS", url: "https://store.united-arrows.tw/coen/", stars: 3, price: 2, cat: "日系", domain: "united-arrows.tw" },
+  // ── ☆☆ 2 Stars ──
+  { name: "Spfloe", url: "https://www.spfloe.com/", stars: 2, price: 3, cat: "台灣品牌", domain: "spfloe.com" },
+  { name: "Jeep (momo)", url: "https://www.momoshop.com.tw/category/LgrpCategory.jsp?ctype=B&l_code=2116300000", stars: 2, price: 3, cat: "歐美", domain: "momoshop.com.tw" },
+  { name: "BEAMS", url: "https://www.beams.tw/", stars: 2, price: 3, cat: "日系", domain: "beams.tw" },
+  { name: "CHUSE", url: "https://www.chusedesign.com/", stars: 2, price: 2, cat: "台灣品牌", domain: "chusedesign.com" },
+  { name: "GOOPi.co", url: "https://www.goopi.co/", stars: 2, price: 3, cat: "台灣品牌", domain: "goopi.co" },
+  { name: "CFT SOUL", url: "https://www.cft-soul.com/", stars: 2, price: 2, cat: "台灣品牌", domain: "cft-soul.com" },
+  { name: "K S i M", url: "https://www.ksimpletw.com/", stars: 2, price: 2, cat: "台灣品牌", domain: "ksimpletw.com" },
+  { name: "QUEEN SHOP", url: "https://www.queenshop.com.tw/zh-TW/QueenShop/ProductList?item1=01&item2=pop", stars: 2, price: 2, cat: "台灣品牌", domain: "queenshop.com.tw" },
+  { name: "Simon Select Shop", url: "https://shopee.tw/simonshopgj?page=0", stars: 2, price: 1, cat: "台灣品牌", domain: "shopee.tw" },
+  { name: "ZALORA 台灣", url: "https://www.zalora.com.tw/c/men/clothing/c-4218", stars: 2, price: 2, cat: "歐美", domain: "zalora.com.tw" },
+  { name: "傑雷諾", url: "https://jerleno.com/collections/%E6%89%80%E6%9C%89%E5%95%86%E5%93%81", stars: 2, price: 1, cat: "台灣品牌", domain: "jerleno.com" },
+  { name: "Chingkoo", url: "https://www.chingkoo.co/", stars: 2, price: 1, cat: "台灣品牌", domain: "chingkoo.co" },
+  { name: "ESC SELECT SHOP", url: "https://www.esctw.com/", stars: 2, price: 1, cat: "台灣品牌", domain: "esctw.com" },
+  { name: "KUGA STORE", url: "https://www.kuga.store/", stars: 2, price: 1, cat: "台灣品牌", domain: "kuga.store" },
+  { name: "COVERNAT", url: "https://shopee.tw/covernat.tw?page=0", stars: 2, price: 1, cat: "韓系", domain: "shopee.tw" },
+  { name: "ddswshop 品牌選貨", url: "https://www.ddswshop.co/", stars: 2, price: 2, cat: "台灣品牌", domain: "ddswshop.co" },
+  { name: "LEVI'S", url: "https://www.levis.com.tw/", stars: 2, price: 3, cat: "歐美", domain: "levis.com.tw" },
+  { name: "WTH.Co", url: "https://shopee.tw/nextmade.studio", stars: 2, price: 1, cat: "台灣品牌", domain: "shopee.tw" },
+  { name: "ENRICH DESIGN", url: "https://www.enrich-design.co/", stars: 2, price: 3, cat: "台灣品牌", domain: "enrich-design.co" },
+  // ── ☆ 1 Star ──
+  { name: "WEAVISM 織本主義", url: "https://www.weavism.com/", stars: 1, price: 2, cat: "台灣品牌", domain: "weavism.com" },
+  { name: "GAP", url: "https://www.gap.tw/plp/19082100002461.html", stars: 1, price: 1, cat: "歐美", domain: "gap.tw" },
+  { name: "JKS Shop", url: "https://www.jksshop.co/", stars: 1, price: 1, cat: "台灣品牌", domain: "jksshop.co" },
+  { name: "K-2 Fashionboy", url: "https://www.k-2fashionboy.com/", stars: 1, price: 1, cat: "台灣品牌", domain: "k-2fashionboy.com" },
+  { name: "SHEIN", url: "https://www.shein.tw/men", stars: 1, price: 1, cat: "歐美", domain: "shein.tw" },
+  { name: "One-Shot", url: "https://www.oneshotclothing.co/", stars: 1, price: 1, cat: "台灣品牌", domain: "oneshotclothing.co" },
+  { name: "lativ 米格國際", url: "https://www.lativ.com.tw/MEN", stars: 1, price: 1, cat: "台灣品牌", domain: "lativ.com.tw" },
+  { name: "future-store", url: "https://www.future-store.com.tw/", stars: 1, price: 1, cat: "台灣品牌", domain: "future-store.com.tw" },
+  { name: "EMPEROR.TW", url: "https://www.emperor.tw/", stars: 1, price: 1, cat: "台灣品牌", domain: "emperor.tw" },
+  { name: "小二布屋", url: "https://www.boy2shop.com/V2/Official/SalePageCategory/381684?sortMode=Curator", stars: 1, price: 1, cat: "台灣品牌", domain: "boy2shop.com" },
+  { name: "UNLIMITED", url: "https://www.unlimited-tw.com/", stars: 1, price: 1, cat: "台灣品牌", domain: "unlimited-tw.com" },
+  { name: "Bershka（實體店）", url: "https://www.bershka.com/tw/h-man.html", stars: 1, price: 1, cat: "歐美", domain: "bershka.com" },
+  // ── 其他 ──
+  { name: "ZOZOTOWN", url: "https://zozo.jp/", stars: 0, price: 2, cat: "日本網站", domain: "zozo.jp" },
+  { name: "Karakubuy", url: "https://karakubuy.com/", stars: 0, price: 2, cat: "日本網站", domain: "karakubuy.com" },
+  { name: "Digital-Mountain", url: "https://www.digital-mountain.net/", stars: 0, price: 2, cat: "日本網站", domain: "digital-mountain.net" },
+  { name: "AZUL BY MOUSSY", url: "https://azul-m.com/", stars: 0, price: 2, cat: "日本網站", domain: "azul-m.com" },
+  { name: "graniph", url: "https://www.graniph.com/", stars: 0, price: 2, cat: "日本網站", domain: "graniph.com" },
+  { name: "CAMBIO", url: "https://www.cambio.co.jp/", stars: 0, price: 3, cat: "日本網站", domain: "cambio.co.jp" },
+  { name: "groundzero2002 Flexing", url: "https://groundzero2002.com/collections/flexing-shoes", stars: 0, price: 2, cat: "鞋", domain: "groundzero2002.com" },
+  { name: "madenwear 馬登工裝鞋", url: "https://www.madenwear.com/", stars: 0, price: 2, cat: "鞋", domain: "madenwear.com" },
+  { name: "WHOSE BAG (PChome)", url: "https://24h.pchome.com.tw/prod/DIBFAV-A900EQIK6", stars: 0, price: 2, cat: "包包", domain: "pchome.com.tw" },
+  { name: "Bitplay 28L 後背包", url: "https://24h.pchome.com.tw/prod/DIBMMA-A900IFYAG", stars: 0, price: 2, cat: "包包", domain: "pchome.com.tw" },
+  { name: "hellolulu ELIO ECO (Pinkoi)", url: "https://www.pinkoi.com/product/HvbpDtcP", stars: 0, price: 2, cat: "包包", domain: "pinkoi.com" },
+  { name: "Go:wild 輕旅捲蓋後背包 (Pinkoi)", url: "https://www.pinkoi.com/product/LC2QffPv", stars: 0, price: 2, cat: "包包", domain: "pinkoi.com" },
+];
+
+// ── Storage ──
+function loadStores() {
+  try {
+    const s = JSON.parse(localStorage.getItem(STORE_KEY));
+    if (Array.isArray(s) && s.length) return s;
+  } catch {}
+  const seed = DEFAULT_STORES.map(s => ({ ...s }));
+  localStorage.setItem(STORE_KEY, JSON.stringify(seed));
+  return seed;
+}
+function persist(arr) {
+  localStorage.setItem(STORE_KEY, JSON.stringify(arr));
+}
+
+let stores = loadStores();
+let editingIdx = -1;
+let searchQ = '';
+let sortBy = 'stars';
+
+// ── Helpers ──
+const PRICE_LABELS = { 1: '$ 平價', 2: '$$ 中等', 3: '$$$ 高端' };
+const PRICE_CLASS  = { 1: 'price-1', 2: 'price-2', 3: 'price-3' };
+
+function starsText(n) {
+  if (!n) return '<span style="color:var(--text2);font-size:11px;">無評分</span>';
+  return '<span class="stars-sm">' +
+    '★'.repeat(n) + '<span class="dim">★'.repeat(5 - n) + '</span></span>';
+}
+
+function extractDomain(url) {
+  try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; }
+}
+
+function favicon(domain) {
+  return `https://www.google.com/s2/favicons?domain=${domain}&sz=48`;
+}
+
+// ── Render list ──
+function sortedFiltered() {
+  let list = stores.map((s, i) => ({ ...s, _i: i }));
+  if (searchQ) {
+    const q = searchQ.toLowerCase();
+    list = list.filter(s => s.name.toLowerCase().includes(q) || s.url.toLowerCase().includes(q));
+  }
+  if (sortBy === 'stars') list.sort((a, b) => b.stars - a.stars || a.price - b.price || a.name.localeCompare(b.name, 'zh-TW'));
+  if (sortBy === 'name')  list.sort((a, b) => a.name.localeCompare(b.name, 'zh-TW'));
+  if (sortBy === 'price') list.sort((a, b) => a.price - b.price || b.stars - a.stars);
+  return list;
+}
+
+function render() {
+  const list = sortedFiltered();
+  document.getElementById('count').textContent = list.length;
+  const el = document.getElementById('store-list');
+  if (!list.length) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">🔍</div><p>沒有符合條件的店家</p></div>';
+    return;
+  }
+  el.innerHTML = list.map(s => {
+    const priceHtml = s.price
+      ? `<span class="price-badge ${PRICE_CLASS[s.price]}">${PRICE_LABELS[s.price]}</span>` : '';
+    const noteHtml = s.note ? `<span class="note-tag">🔥 ${s.note}</span>` : '';
+    const dom = s.domain || extractDomain(s.url);
+    return `
+    <div class="store-item" data-idx="${s._i}">
+      <div class="store-favicon">
+        <img src="${favicon(dom)}" alt=""
+          onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2228%22 height=%2228%22><rect width=%2228%22 height=%2228%22 rx=%228%22 fill=%22%23333%22/><text x=%2214%22 y=%2220%22 text-anchor=%22middle%22 font-size=%2216%22>👔</text></svg>'">
+      </div>
+      <div class="store-info">
+        <div class="store-name">${esc(s.name)}</div>
+        <div class="store-url">${esc(s.url)}</div>
+        <div class="store-meta">
+          ${starsText(s.stars)}
+          ${priceHtml}
+          <span class="cat-tag">${esc(s.cat || '')}</span>
+          ${noteHtml}
+        </div>
+      </div>
+      <div class="store-actions">
+        <button class="icon-btn" title="編輯" onclick="openModal(${s._i})">✏️</button>
+        <button class="icon-btn del" title="刪除" onclick="confirmDelete(${s._i})">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function esc(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Modal ──
+let selectedStar = 5;
+let selectedPrice = 2;
+
+function openModal(idx) {
+  editingIdx = idx;
+  clearErrors();
+  const s = idx === -1
+    ? { name: '', url: '', stars: 5, price: 2, cat: '台灣品牌', domain: '', note: '' }
+    : stores[idx];
+
+  document.getElementById('modal-title').textContent = idx === -1 ? '新增店家' : '編輯店家';
+  document.getElementById('f-name').value = s.name || '';
+  document.getElementById('f-url').value = s.url || '';
+  document.getElementById('f-domain').value = s.domain || '';
+  document.getElementById('f-note').value = s.note || '';
+  document.getElementById('f-cat').value = s.cat || '台灣品牌';
+  document.getElementById('f-url-link').href = s.url || '#';
+
+  selectedStar = s.stars ?? 5;
+  selectedPrice = s.price ?? 2;
+  updateStarPicker();
+  updatePricePicker();
+
+  document.getElementById('modal').classList.remove('hidden');
+  document.getElementById('f-name').focus();
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.add('hidden');
+}
+
+function clearErrors() {
+  document.getElementById('field-name').classList.remove('error');
+  document.getElementById('field-url').classList.remove('error');
+}
+
+function saveModal() {
+  clearErrors();
+  const name = document.getElementById('f-name').value.trim();
+  const url  = document.getElementById('f-url').value.trim();
+  let valid = true;
+  if (!name) { document.getElementById('field-name').classList.add('error'); valid = false; }
+  if (!url || !url.startsWith('http')) { document.getElementById('field-url').classList.add('error'); valid = false; }
+  if (!valid) return;
+
+  const domain = document.getElementById('f-domain').value.trim() || extractDomain(url);
+  const store = {
+    name,
+    url,
+    domain,
+    stars: selectedStar,
+    price: selectedPrice,
+    cat: document.getElementById('f-cat').value,
+    note: document.getElementById('f-note').value.trim() || undefined,
+  };
+  if (!store.note) delete store.note;
+
+  if (editingIdx === -1) {
+    stores.push(store);
+  } else {
+    stores[editingIdx] = store;
+  }
+  persist(stores);
+  render();
+  closeModal();
+  showToast(editingIdx === -1 ? '✅ 已新增' : '✅ 已儲存', 'success');
+}
+
+// ── Star / Price pickers ──
+function updateStarPicker() {
+  document.querySelectorAll('#star-picker .star-opt').forEach(el => {
+    el.classList.toggle('active', Number(el.dataset.v) === selectedStar);
+  });
+}
+function updatePricePicker() {
+  document.querySelectorAll('#price-picker .price-opt').forEach(el => {
+    el.classList.toggle('active', Number(el.dataset.v) === selectedPrice);
+  });
+}
+
+document.querySelectorAll('#star-picker .star-opt').forEach(el => {
+  el.addEventListener('click', () => { selectedStar = Number(el.dataset.v); updateStarPicker(); });
+});
+document.querySelectorAll('#price-picker .price-opt').forEach(el => {
+  el.addEventListener('click', () => { selectedPrice = Number(el.dataset.v); updatePricePicker(); });
+});
+
+// ── URL auto-fill domain ──
+function onUrlInput() {
+  const url = document.getElementById('f-url').value.trim();
+  document.getElementById('f-url-link').href = url || '#';
+  const dom = extractDomain(url);
+  if (dom) document.getElementById('f-domain').value = dom;
+}
+
+// ── Delete ──
+function confirmDelete(idx) {
+  showConfirm(
+    `刪除「${stores[idx].name}」？`,
+    '刪除後無法復原，但可透過「重設」恢復預設資料。',
+    () => {
+      stores.splice(idx, 1);
+      persist(stores);
+      render();
+      showToast('🗑️ 已刪除', 'warn');
+    }
+  );
+}
+
+// ── Export / Import ──
+function exportJSON() {
+  const blob = new Blob([JSON.stringify(stores, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'apparel_stores.json';
+  a.click();
+  showToast('✅ 已匯出', 'success');
+}
+
+function triggerImport() {
+  document.getElementById('import-file').click();
+}
+
+function importJSON(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (!Array.isArray(data)) throw new Error();
+      showConfirm(
+        `匯入 ${data.length} 筆資料？`,
+        '這會覆蓋目前的清單，建議先匯出備份。',
+        () => {
+          stores = data;
+          persist(stores);
+          render();
+          showToast(`✅ 已匯入 ${data.length} 筆`, 'success');
+        }
+      );
+    } catch {
+      showToast('❌ 檔案格式錯誤', 'warn');
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+// ── Reset ──
+function confirmReset() {
+  showConfirm(
+    '重設為預設資料？',
+    `目前 ${stores.length} 筆資料將被清除，恢復成原始 ${DEFAULT_STORES.length} 筆。建議先匯出備份。`,
+    () => {
+      stores = DEFAULT_STORES.map(s => ({ ...s }));
+      persist(stores);
+      render();
+      showToast('✅ 已重設', 'success');
+    }
+  );
+}
+
+// ── Confirm dialog ──
+let confirmCallback = null;
+function showConfirm(title, msg, cb) {
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-msg').textContent = msg;
+  confirmCallback = cb;
+  document.getElementById('confirm').classList.remove('hidden');
+}
+function closeConfirm() {
+  document.getElementById('confirm').classList.add('hidden');
+  confirmCallback = null;
+}
+document.getElementById('confirm-ok').addEventListener('click', () => {
+  if (confirmCallback) confirmCallback();
+  closeConfirm();
+});
+
+// ── Toast ──
+let toastTimer;
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ── Search & sort ──
+document.getElementById('search').addEventListener('input', e => {
+  searchQ = e.target.value.trim();
+  render();
+});
+document.getElementById('sort').addEventListener('change', e => {
+  sortBy = e.target.value;
+  render();
+});
+
+// Close modal on backdrop click
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal')) closeModal();
+});
+
+render();
+</script>
+</body>
+</html>
