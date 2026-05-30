@@ -271,6 +271,16 @@
     margin-top: 2px;
   }
 
+  .visit-time {
+    font-size: 11px;
+    color: var(--text2);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 16px;
+  }
+  .visit-time.has-visit { color: var(--accent2); }
+
   /* ── Section heading ── */
   .section-header {
     display: flex;
@@ -406,6 +416,56 @@
     .search-wrap { width: 100%; margin-left: 0; }
     #search { width: 100%; }
     #search:focus { width: 100%; }
+
+    /* ── List layout ── */
+    .grid {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .card {
+      flex-direction: row;
+      align-items: center;
+      border-radius: 12px;
+    }
+
+    .card:hover { transform: translateX(3px) translateY(0); }
+
+    .card-thumb {
+      width: 64px;
+      height: 64px;
+      min-width: 64px;
+      border-radius: 10px 0 0 10px;
+      background: var(--surface2);
+    }
+
+    .card-thumb img.favicon {
+      width: 36px;
+      height: 36px;
+    }
+
+    .card-body {
+      padding: 10px 12px;
+      justify-content: center;
+      gap: 5px;
+    }
+
+    .card-name {
+      font-size: 14px;
+    }
+
+    .card-meta {
+      justify-content: flex-start;
+      gap: 8px;
+    }
+
+    .stars .star { font-size: 11px; }
+
+    /* hide category tag on mobile list to keep it compact */
+    .card-tags { display: none; }
+
+    .visit-time { font-size: 10px; }
   }
 </style>
 </head>
@@ -482,6 +542,40 @@
 </main>
 
 <script>
+// ── Visit tracking ──
+const VISITS = JSON.parse(localStorage.getItem('apparel_visits') || '{}');
+
+function saveVisit(url) {
+  VISITS[url] = Date.now();
+  localStorage.setItem('apparel_visits', JSON.stringify(VISITS));
+}
+
+function formatVisitTime(ts) {
+  const diff = Date.now() - ts;
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return '剛剛';
+  if (m < 60) return `${m} 分鐘前`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} 小時前`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `${d} 天前`;
+  const dt = new Date(ts);
+  return `${dt.getFullYear()}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')}`;
+}
+
+// Update a single card's visit-time label without re-rendering
+document.addEventListener('click', e => {
+  const card = e.target.closest('a.card[data-url]');
+  if (!card) return;
+  const url = card.dataset.url;
+  saveVisit(url);
+  const el = card.querySelector('.visit-time');
+  if (el) {
+    el.textContent = '🕐 剛剛';
+    el.classList.add('has-visit');
+  }
+});
+
 const STORES = [
   // ── ☆☆☆☆☆ 5 Stars ──
   { name: "SENSE OF PLACE", url: "https://senseofplace.tokyo/zh-TW/SenseOfPlace/ProductList?item1=01", stars: 5, price: 2, cat: "日系", domain: "senseofplace.tokyo" },
@@ -616,8 +710,8 @@ const SECTION_META = {
 };
 
 let activeStars = new Set(["all"]);
-let activePrice = "all";
-let activeCat = "all";
+let activePrices = new Set(["all"]);
+let activeCats = new Set(["all"]);
 let searchQ = "";
 
 function getFaviconUrl(domain) {
@@ -642,10 +736,12 @@ function cardHtml(s) {
   const faviconUrl = getFaviconUrl(s.domain);
   const noteHtml = s.note ? `<span class="category-tag">🔥 ${s.note}</span>` : '';
   const catHtml = s.cat ? `<span class="category-tag">${s.cat}</span>` : '';
+  const vt = VISITS[s.url];
+  const vtText = vt ? `🕐 ${formatVisitTime(vt)}` : '';
   return `
     <a class="card" href="${s.url}" target="_blank" rel="noopener"
        data-stars="${s.stars}" data-price="${s.price}" data-cat="${s.cat}"
-       data-name="${s.name.toLowerCase()}">
+       data-name="${s.name.toLowerCase()}" data-url="${s.url}">
       <div class="card-thumb">
         <div class="brand-bg" style="background-image:url('${faviconUrl}')"></div>
         <img class="favicon" src="${faviconUrl}" alt="${s.name}"
@@ -657,7 +753,8 @@ function cardHtml(s) {
           ${starsHtml(s.stars)}
           ${priceHtml(s.price)}
         </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">${catHtml}${noteHtml}</div>
+        <div class="card-tags" style="display:flex;gap:6px;flex-wrap:wrap;">${catHtml}${noteHtml}</div>
+        <div class="visit-time ${vt ? 'has-visit' : ''}">${vtText}</div>
       </div>
     </a>`;
 }
@@ -669,8 +766,8 @@ function renderSections() {
 
   STORES.forEach(s => {
     const starMatch = activeStars.has("all") || activeStars.has(String(s.stars));
-    const priceMatch = activePrice === "all" || String(s.price) === activePrice;
-    const catMatch = activeCat === "all" || s.cat === activeCat;
+    const priceMatch = activePrices.has("all") || activePrices.has(String(s.price));
+    const catMatch = activeCats.has("all") || activeCats.has(s.cat);
     const nameMatch = !searchQ || s.name.toLowerCase().includes(searchQ);
 
     const key = s.stars;
@@ -722,8 +819,8 @@ filterToggle.addEventListener('click', () => {
 
 function updateFilterBadge() {
   const active = (!activeStars.has('all') ? 1 : 0) +
-                 (activePrice !== 'all' ? 1 : 0) +
-                 (activeCat !== 'all' ? 1 : 0) +
+                 (!activePrices.has('all') ? 1 : 0) +
+                 (!activeCats.has('all') ? 1 : 0) +
                  (searchQ ? 1 : 0);
   filterBadge.textContent = active > 0 ? active : '';
   filterBadge.classList.toggle('show', active > 0);
@@ -759,9 +856,17 @@ document.querySelectorAll('[data-star]').forEach(btn => {
 
 document.querySelectorAll('[data-price]').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('[data-price]').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    activePrice = btn.dataset.price;
+    const val = btn.dataset.price;
+    if (val === 'all') {
+      activePrices = new Set(['all']);
+    } else {
+      activePrices.delete('all');
+      activePrices.has(val) ? activePrices.delete(val) : activePrices.add(val);
+      if (activePrices.size === 0) activePrices = new Set(['all']);
+    }
+    document.querySelectorAll('[data-price]').forEach(b => {
+      b.classList.toggle('active', activePrices.has(b.dataset.price));
+    });
     renderSections();
     updateFilterBadge();
   });
@@ -769,9 +874,17 @@ document.querySelectorAll('[data-price]').forEach(btn => {
 
 document.querySelectorAll('[data-cat]').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('[data-cat]').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    activeCat = btn.dataset.cat;
+    const val = btn.dataset.cat;
+    if (val === 'all') {
+      activeCats = new Set(['all']);
+    } else {
+      activeCats.delete('all');
+      activeCats.has(val) ? activeCats.delete(val) : activeCats.add(val);
+      if (activeCats.size === 0) activeCats = new Set(['all']);
+    }
+    document.querySelectorAll('[data-cat]').forEach(b => {
+      b.classList.toggle('active', activeCats.has(b.dataset.cat));
+    });
     renderSections();
     updateFilterBadge();
   });
