@@ -47,3 +47,6 @@ Edit the `STORES` array in `index.html`. Each entry:
 ## Skills used in this project
 - `anthropic-skills:xlsx` — if exporting store list to spreadsheet
 - `anthropic-skills:pdf` — if generating a PDF catalog
+
+## Git workflow
+- 每次透過 AI 對話編輯而異動檔案時，需將所有 local changes 一併進行 Git commit。
