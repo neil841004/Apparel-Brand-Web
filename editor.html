@@ -245,6 +245,7 @@
     <div class="header-title">✏️ 服飾清單<span>編輯器</span></div>
     <div class="toolbar">
       <button class="btn btn-primary" onclick="openModal(-1)">＋ 新增</button>
+      <button class="btn btn-ghost" onclick="refreshFromSheet()">雲端同步</button>
       <button class="btn btn-ghost" onclick="exportJSON()">匯出</button>
       <button class="btn btn-ghost" onclick="triggerImport()">匯入</button>
       <button class="btn btn-danger" onclick="confirmReset()">重設</button>
@@ -352,6 +353,8 @@
 
 <script>
 const STORE_KEY = 'apparel_stores';
+const ADMIN_TOKEN_KEY = 'apparel_sheet_admin_token';
+const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxjk6If04-aFjhCjkbNkMBOyVkYAC4G1TUzdh4Bpan9xSVYhFEXlB1D8-HRtR7j8OW5zQ/exec';
 
 const DEFAULT_STORES = [
   // ── ☆☆☆☆☆ 5 Stars ──
@@ -452,21 +455,116 @@ const DEFAULT_STORES = [
   { name: "Bershka（實體店）", url: "https://www.bershka.com/tw/h-man.html", stars: 1, price: 1, cat: "歐美", domain: "bershka.com" },
 ];
 
-// ── Storage ──
-function loadStores() {
+// ── Storage + Google Sheet sync ──
+function normalizeStore(s) {
+  const url = String(s.url || '').trim();
+  const note = String(s.note || '').trim();
+  const store = {
+    name: String(s.name || '').trim(),
+    url,
+    domain: String(s.domain || '').trim() || extractDomain(url),
+    stars: Number(s.stars || 0),
+    price: Number(s.price || 1),
+    cat: String(s.cat || '').trim(),
+  };
+  if (note) store.note = note;
+  return store;
+}
+
+function normalizeStores(arr) {
+  return arr.map(normalizeStore).filter(s => s.name && s.url);
+}
+
+function storesEqual(a, b) {
+  return JSON.stringify(normalizeStores(a)) === JSON.stringify(normalizeStores(b));
+}
+
+function loadLocalStores() {
   try {
     const s = JSON.parse(localStorage.getItem(STORE_KEY));
-    if (Array.isArray(s) && s.length) return s;
+    if (Array.isArray(s) && s.length) return normalizeStores(s);
   } catch {}
   const seed = DEFAULT_STORES.map(s => ({ ...s }));
   localStorage.setItem(STORE_KEY, JSON.stringify(seed));
   return seed;
 }
-function persist(arr) {
-  localStorage.setItem(STORE_KEY, JSON.stringify(arr));
+
+function persistLocal(arr) {
+  localStorage.setItem(STORE_KEY, JSON.stringify(normalizeStores(arr)));
 }
 
-let stores = loadStores();
+async function fetchStoresFromSheet() {
+  const res = await fetch(`${SHEET_API_URL}?t=${Date.now()}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  if (!Array.isArray(data.stores) || !data.stores.length) {
+    throw new Error('Google Sheet has no stores yet.');
+  }
+  return normalizeStores(data.stores);
+}
+
+async function refreshFromSheet(options = {}) {
+  try {
+    const sheetStores = await fetchStoresFromSheet();
+    stores = sheetStores;
+    persistLocal(stores);
+    render();
+    if (!options.silent) showToast(`✅ 已從雲端同步 ${stores.length} 筆`, 'success');
+  } catch (err) {
+    console.warn('Google Sheet refresh failed.', err);
+    if (!options.silent) showToast('⚠️ 雲端同步失敗，保留目前本機資料', 'warn');
+  }
+}
+
+function getAdminToken() {
+  let token = localStorage.getItem(ADMIN_TOKEN_KEY) || '';
+  if (!token) {
+    token = prompt('請輸入 Google Sheet 管理密碼');
+    if (token) localStorage.setItem(ADMIN_TOKEN_KEY, token);
+  }
+  return token;
+}
+
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function syncStoresToSheet(nextStores) {
+  const token = getAdminToken();
+  if (!token) throw new Error('Missing admin token.');
+
+  const payload = {
+    action: 'replaceAll',
+    token,
+    stores: normalizeStores(nextStores),
+  };
+
+  await fetch(SHEET_API_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    body: JSON.stringify(payload),
+  });
+
+  for (let i = 0; i < 3; i++) {
+    await wait(1200);
+    const sheetStores = await fetchStoresFromSheet();
+    if (storesEqual(sheetStores, nextStores)) return;
+  }
+
+  throw new Error('Google Sheet sync was not verified.');
+}
+
+function persist(arr) {
+  persistLocal(arr);
+  syncStoresToSheet(arr)
+    .then(() => showToast('✅ 已同步到 Google Sheet', 'success'))
+    .catch(err => {
+      console.warn('Google Sheet sync failed.', err);
+      showToast('⚠️ 已暫存本機，但尚未同步到 Google Sheet', 'warn');
+    });
+}
+
+let stores = loadLocalStores();
 let editingIdx = -1;
 let searchQ = '';
 let sortBy = 'stars';
@@ -750,6 +848,7 @@ document.getElementById('modal').addEventListener('click', e => {
 });
 
 render();
+refreshFromSheet({ silent: true });
 </script>
 </body>
 </html>
