@@ -693,14 +693,25 @@ const DEFAULT_STORES = [
 
 ];
 
-// Load from localStorage (editor saves here), fall back to defaults
-let STORES = (() => {
+const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxjk6If04-aFjhCjkbNkMBOyVkYAC4G1TUzdh4Bpan9xSVYhFEXlB1D8-HRtR7j8OW5zQ/exec';
+
+let STORES = DEFAULT_STORES;
+
+async function loadStores() {
   try {
-    const s = JSON.parse(localStorage.getItem('apparel_stores'));
-    if (Array.isArray(s) && s.length) return s;
-  } catch {}
+    const res = await fetch(`${SHEET_API_URL}?t=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const data = await res.json();
+    if (Array.isArray(data.stores) && data.stores.length) {
+      return data.stores;
+    }
+  } catch (err) {
+    console.warn('Google Sheet load failed, using default stores.', err);
+  }
+
   return DEFAULT_STORES;
-})();
+}
 
 const PRICE_LABELS = { 1: "$ 平價", 2: "$$ 中等", 3: "$$$ 高端" };
 const PRICE_CLASS = { 1: "price-1", 2: "price-2", 3: "price-3" };
@@ -902,6 +913,10 @@ document.getElementById('search').addEventListener('input', e => {
 });
 
 renderSections();
+loadStores().then(stores => {
+  STORES = stores;
+  renderSections();
+});
 </script>
 </body>
 </html>
