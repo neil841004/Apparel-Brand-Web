@@ -560,13 +560,13 @@ const ADMIN_TOKEN_KEY = 'apparel_sheet_admin_token';
 const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxjk6If04-aFjhCjkbNkMBOyVkYAC4G1TUzdh4Bpan9xSVYhFEXlB1D8-HRtR7j8OW5zQ/exec';
 
 // ── Visit tracking ──
-const VISITS = JSON.parse(localStorage.getItem('apparel_visits') || '{}');
+const VISITS_COOKIE = 'apparel_visits';
+const VISITS = loadVisits();
 
 function saveVisit(url) {
   const visitedAt = Date.now();
-  VISITS[url] = visitedAt;
-  localStorage.setItem('apparel_visits', JSON.stringify(VISITS));
-  syncVisitToSheet(url, visitedAt);
+  VISITS[visitKey(url)] = visitedAt;
+  saveVisits();
 }
 
 function getAdminToken() {
@@ -581,22 +581,53 @@ function promptAdminToken() {
   return token;
 }
 
-function syncVisitToSheet(url, visitedAt) {
-  const token = getAdminToken();
-  if (!token) return;
+function loadVisits() {
+  const cookieValue = readCookie(VISITS_COOKIE);
+  if (cookieValue) {
+    try {
+      return JSON.parse(cookieValue);
+    } catch {}
+  }
 
-  fetch(SHEET_API_URL, {
-    method: 'POST',
-    mode: 'no-cors',
-    body: JSON.stringify({
-      action: 'updateVisit',
-      token,
-      url,
-      visitedAt: new Date(visitedAt).toISOString(),
-    }),
-  }).catch(err => {
-    console.warn('Google Sheet visit sync failed.', err);
-  });
+  try {
+    const legacy = JSON.parse(localStorage.getItem('apparel_visits') || '{}');
+    const migrated = {};
+    Object.entries(legacy).forEach(([url, ts]) => {
+      if (Number(ts)) migrated[visitKey(url)] = Number(ts);
+    });
+    if (Object.keys(migrated).length) {
+      writeCookie(VISITS_COOKIE, JSON.stringify(migrated), 365);
+      return migrated;
+    }
+  } catch {}
+
+  return {};
+}
+
+function saveVisits() {
+  writeCookie(VISITS_COOKIE, JSON.stringify(VISITS), 365);
+}
+
+function readCookie(name) {
+  const prefix = `${name}=`;
+  const found = document.cookie
+    .split(';')
+    .map(part => part.trim())
+    .find(part => part.startsWith(prefix));
+  return found ? decodeURIComponent(found.slice(prefix.length)) : '';
+}
+
+function writeCookie(name, value, days) {
+  const maxAge = days * 24 * 60 * 60;
+  document.cookie = `${name}=${encodeURIComponent(value)}; max-age=${maxAge}; path=/; SameSite=Lax`;
+}
+
+function visitKey(url) {
+  let hash = 0;
+  for (let i = 0; i < url.length; i++) {
+    hash = ((hash << 5) - hash + url.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash).toString(36);
 }
 
 function formatVisitTime(ts) {
@@ -744,7 +775,6 @@ async function loadStores() {
 
     const data = await res.json();
     if (Array.isArray(data.stores) && data.stores.length) {
-      mergeSheetVisits(data.stores);
       return data.stores;
     }
   } catch (err) {
@@ -752,22 +782,6 @@ async function loadStores() {
   }
 
   return DEFAULT_STORES;
-}
-
-function mergeSheetVisits(stores) {
-  let changed = false;
-  stores.forEach(store => {
-    if (!store.url || !store.lastVisitedAt) return;
-    const ts = Date.parse(store.lastVisitedAt);
-    if (!Number.isFinite(ts)) return;
-    if (!VISITS[store.url] || ts > VISITS[store.url]) {
-      VISITS[store.url] = ts;
-      changed = true;
-    }
-  });
-  if (changed) {
-    localStorage.setItem('apparel_visits', JSON.stringify(VISITS));
-  }
 }
 
 const PRICE_LABELS = { 1: "$ 平價", 2: "$$ 中等", 3: "$$$ 高端" };
@@ -809,7 +823,7 @@ function cardHtml(s) {
   const faviconUrl = getFaviconUrl(s.domain);
   const noteHtml = s.note ? `<span class="category-tag">🔥 ${s.note}</span>` : '';
   const catHtml = s.cat ? `<span class="category-tag">${s.cat}</span>` : '';
-  const vt = VISITS[s.url];
+  const vt = VISITS[visitKey(s.url)];
   const vtText = vt ? `🕐 ${formatVisitTime(vt)}` : '';
   return `
     <a class="card" href="${s.url}" target="_blank" rel="noopener"

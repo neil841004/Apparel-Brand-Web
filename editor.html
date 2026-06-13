@@ -459,7 +459,6 @@ const DEFAULT_STORES = [
 function normalizeStore(s) {
   const url = String(s.url || '').trim();
   const note = String(s.note || '').trim();
-  const lastVisitedAt = String(s.lastVisitedAt || '').trim();
   const store = {
     name: String(s.name || '').trim(),
     url,
@@ -469,7 +468,6 @@ function normalizeStore(s) {
     cat: String(s.cat || '').trim(),
   };
   if (note) store.note = note;
-  if (lastVisitedAt) store.lastVisitedAt = lastVisitedAt;
   return store;
 }
 
