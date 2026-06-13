@@ -495,7 +495,7 @@
         <h1>服飾<span>網購整理</span></h1>
         <div class="subtitle">按星等與價位整理的服飾購物清單</div>
       </div>
-      <a href="editor.html" class="edit-link">✏️ 編輯清單</a>
+      <a href="editor.html" class="edit-link" id="editLink">✏️ 編輯清單</a>
     </div>
     <button class="filter-toggle" id="filterToggle" aria-expanded="false">
       <span class="filter-toggle-label">🔧 篩選條件</span>
@@ -556,12 +556,47 @@
 </main>
 
 <script>
+const ADMIN_TOKEN_KEY = 'apparel_sheet_admin_token';
+const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxjk6If04-aFjhCjkbNkMBOyVkYAC4G1TUzdh4Bpan9xSVYhFEXlB1D8-HRtR7j8OW5zQ/exec';
+
 // ── Visit tracking ──
 const VISITS = JSON.parse(localStorage.getItem('apparel_visits') || '{}');
 
 function saveVisit(url) {
-  VISITS[url] = Date.now();
+  const visitedAt = Date.now();
+  VISITS[url] = visitedAt;
   localStorage.setItem('apparel_visits', JSON.stringify(VISITS));
+  syncVisitToSheet(url, visitedAt);
+}
+
+function getAdminToken() {
+  return localStorage.getItem(ADMIN_TOKEN_KEY) || '';
+}
+
+function promptAdminToken() {
+  const current = getAdminToken();
+  const token = prompt('請輸入 Google Sheet 管理密碼', current);
+  if (!token) return '';
+  localStorage.setItem(ADMIN_TOKEN_KEY, token);
+  return token;
+}
+
+function syncVisitToSheet(url, visitedAt) {
+  const token = getAdminToken();
+  if (!token) return;
+
+  fetch(SHEET_API_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    body: JSON.stringify({
+      action: 'updateVisit',
+      token,
+      url,
+      visitedAt: new Date(visitedAt).toISOString(),
+    }),
+  }).catch(err => {
+    console.warn('Google Sheet visit sync failed.', err);
+  });
 }
 
 function formatVisitTime(ts) {
@@ -587,6 +622,13 @@ document.addEventListener('click', e => {
   if (el) {
     el.textContent = '🕐 剛剛';
     el.classList.add('has-visit');
+  }
+});
+
+document.getElementById('editLink').addEventListener('click', e => {
+  e.preventDefault();
+  if (promptAdminToken()) {
+    window.location.href = e.currentTarget.href;
   }
 });
 
@@ -693,8 +735,6 @@ const DEFAULT_STORES = [
 
 ];
 
-const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxjk6If04-aFjhCjkbNkMBOyVkYAC4G1TUzdh4Bpan9xSVYhFEXlB1D8-HRtR7j8OW5zQ/exec';
-
 let STORES = DEFAULT_STORES;
 
 async function loadStores() {
@@ -704,6 +744,7 @@ async function loadStores() {
 
     const data = await res.json();
     if (Array.isArray(data.stores) && data.stores.length) {
+      mergeSheetVisits(data.stores);
       return data.stores;
     }
   } catch (err) {
@@ -711,6 +752,22 @@ async function loadStores() {
   }
 
   return DEFAULT_STORES;
+}
+
+function mergeSheetVisits(stores) {
+  let changed = false;
+  stores.forEach(store => {
+    if (!store.url || !store.lastVisitedAt) return;
+    const ts = Date.parse(store.lastVisitedAt);
+    if (!Number.isFinite(ts)) return;
+    if (!VISITS[store.url] || ts > VISITS[store.url]) {
+      VISITS[store.url] = ts;
+      changed = true;
+    }
+  });
+  if (changed) {
+    localStorage.setItem('apparel_visits', JSON.stringify(VISITS));
+  }
 }
 
 const PRICE_LABELS = { 1: "$ 平價", 2: "$$ 中等", 3: "$$$ 高端" };

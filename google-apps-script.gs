@@ -1,6 +1,6 @@
 const SHEET_NAME = 'stores';
 const ADMIN_TOKEN_PROPERTY = 'ADMIN_TOKEN';
-const HEADERS = ['name', 'url', 'domain', 'stars', 'price', 'cat', 'note', 'enabled'];
+const HEADERS = ['name', 'url', 'domain', 'stars', 'price', 'cat', 'note', 'lastVisitedAt', 'enabled'];
 
 function doGet() {
   const stores = readStores_();
@@ -14,18 +14,27 @@ function doPost(e) {
   const payload = parsePayload_(e);
   verifyToken_(payload.token);
 
-  if (payload.action !== 'replaceAll') {
-    throw new Error('Unsupported action.');
+  if (payload.action === 'replaceAll') {
+    const stores = Array.isArray(payload.stores) ? payload.stores : [];
+    writeStores_(stores);
+
+    return json_({
+      ok: true,
+      updatedAt: new Date().toISOString(),
+      count: stores.length,
+    });
   }
 
-  const stores = Array.isArray(payload.stores) ? payload.stores : [];
-  writeStores_(stores);
+  if (payload.action === 'updateVisit') {
+    updateVisit_(payload.url, payload.visitedAt);
 
-  return json_({
-    ok: true,
-    updatedAt: new Date().toISOString(),
-    count: stores.length,
-  });
+    return json_({
+      ok: true,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  throw new Error('Unsupported action.');
 }
 
 function readStores_() {
@@ -50,6 +59,7 @@ function readStores_() {
         price: Number(item.price || 1),
         cat: String(item.cat || '').trim(),
         note: String(item.note || '').trim(),
+        lastVisitedAt: formatTimestamp_(item.lastVisitedAt),
         enabled: item.enabled !== false && String(item.enabled).toUpperCase() !== 'FALSE',
       };
     })
@@ -77,6 +87,7 @@ function writeStores_(stores) {
         store.price,
         store.cat,
         store.note,
+        store.lastVisitedAt,
         true,
       ]);
 
@@ -99,7 +110,56 @@ function normalizeStore_(store) {
     price: Number(store.price || 1),
     cat: String(store.cat || '').trim(),
     note: String(store.note || '').trim(),
+    lastVisitedAt: formatTimestamp_(store.lastVisitedAt),
   };
+}
+
+function updateVisit_(url, visitedAt) {
+  const targetUrl = String(url || '').trim();
+  if (!targetUrl) throw new Error('Missing url.');
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+
+  try {
+    const sheet = getSheet_();
+    ensureHeaders_(sheet);
+    const values = sheet.getDataRange().getValues();
+    const headers = values[0].map(String);
+    const urlCol = headers.indexOf('url') + 1;
+    const visitCol = headers.indexOf('lastVisitedAt') + 1;
+    if (!urlCol || !visitCol) throw new Error('Missing url or lastVisitedAt column.');
+
+    for (let row = 2; row <= values.length; row++) {
+      const rowUrl = String(values[row - 1][urlCol - 1] || '').trim();
+      if (rowUrl === targetUrl) {
+        sheet.getRange(row, visitCol).setValue(formatTimestamp_(visitedAt || new Date()));
+        return;
+      }
+    }
+
+    throw new Error('Store url not found.');
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function ensureHeaders_(sheet) {
+  const current = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), HEADERS.length)).getValues()[0].map(String);
+  HEADERS.forEach((header, index) => {
+    if (current[index] !== header) {
+      sheet.getRange(1, index + 1).setValue(header);
+    }
+  });
+}
+
+function formatTimestamp_(value) {
+  if (!value) return '';
+  if (Object.prototype.toString.call(value) === '[object Date]' && !isNaN(value.getTime())) {
+    return value.toISOString();
+  }
+  const date = new Date(value);
+  return isNaN(date.getTime()) ? '' : date.toISOString();
 }
 
 function parsePayload_(e) {

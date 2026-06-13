@@ -459,6 +459,7 @@ const DEFAULT_STORES = [
 function normalizeStore(s) {
   const url = String(s.url || '').trim();
   const note = String(s.note || '').trim();
+  const lastVisitedAt = String(s.lastVisitedAt || '').trim();
   const store = {
     name: String(s.name || '').trim(),
     url,
@@ -468,6 +469,7 @@ function normalizeStore(s) {
     cat: String(s.cat || '').trim(),
   };
   if (note) store.note = note;
+  if (lastVisitedAt) store.lastVisitedAt = lastVisitedAt;
   return store;
 }
 
@@ -523,6 +525,12 @@ function getAdminToken() {
     if (token) localStorage.setItem(ADMIN_TOKEN_KEY, token);
   }
   return token;
+}
+
+function requireAdminToken() {
+  if (getAdminToken()) return true;
+  window.location.replace('index.html');
+  return false;
 }
 
 function wait(ms) {
@@ -847,8 +855,10 @@ document.getElementById('modal').addEventListener('click', e => {
   if (e.target === document.getElementById('modal')) closeModal();
 });
 
-render();
-refreshFromSheet({ silent: true });
+if (requireAdminToken()) {
+  render();
+  refreshFromSheet({ silent: true });
+}
 </script>
 </body>
 </html>
