@@ -733,7 +733,8 @@ document.addEventListener('click', e => {
 
 document.getElementById('editLink').addEventListener('click', e => {
   e.preventDefault();
-  if (promptAdminToken()) {
+  const saved = getAdminToken();
+  if (saved || promptAdminToken()) {
     window.location.href = e.currentTarget.href;
   }
 });
